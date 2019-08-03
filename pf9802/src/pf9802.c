@@ -56,7 +56,7 @@ struct pf9802_s {
     void *udata;
 };
 
-uint32_t __ntohl(uint32_t const net) {
+static uint32_t __ntohl(uint32_t const net) {
     uint8_t data[4] = {};
     memcpy(&data, &net, sizeof(data));
 
@@ -78,7 +78,7 @@ static void __post_result(pf9802_result *r, result_t *result) {
     r->power   = result->data[4].f;
 }
 
-int __open_serial_tty(const char *dev) {
+static int __open_serial_tty(const char *dev) {
     int fd;
     struct termios options;
 
