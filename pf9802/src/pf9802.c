@@ -233,7 +233,7 @@ static void __ev_io_cb(EV_P_ struct ev_io *w, int revents) {
         assert(revents & EV_WRITE);
         ret = writen(p->fd, &byte, sizeof byte);
         if (ret != 1) {
-            p->cb(EV_A_ NULL, PF_ESYS, p->udata);
+            p->cb(EV_A_ p, NULL, PF_ESYS, p->udata);
             goto __err_out;
         }
         ev_io_stop(EV_A_ &p->io);
@@ -246,11 +246,11 @@ static void __ev_io_cb(EV_P_ struct ev_io *w, int revents) {
         assert(revents & EV_READ);
         ret = readn(p->fd, &byte, sizeof byte);
         if (ret <= 0) {
-            p->cb(EV_A_ NULL, (ret ? PF_ESYS : PF_ETRUNC), p->udata);
+            p->cb(EV_A_ p, NULL, (ret ? PF_ESYS : PF_ETRUNC), p->udata);
             goto __err_out;
         }
         if (byte != PF_RESP) {
-            p->cb(EV_A_ NULL, PF_ERESP, p->udata);
+            p->cb(EV_A_ p, NULL, PF_ERESP, p->udata);
             goto __err_out;
         }
         p->state = S_READ_DATA;
@@ -261,11 +261,11 @@ static void __ev_io_cb(EV_P_ struct ev_io *w, int revents) {
         data_left = sizeof(result_t) - p->data_idx;
         ret = readn(p->fd, p->data_buffer.buf + p->data_idx, data_left);
         if (ret < 0) {
-            p->cb(EV_A_ NULL, PF_ESYS, p->udata);
+            p->cb(EV_A_ p, NULL, PF_ESYS, p->udata);
             goto __err_out;
         }
         if (ret == 0 && data_left) {
-            p->cb(EV_A_ NULL, PF_ETRUNC, p->udata);
+            p->cb(EV_A_ p, NULL, PF_ETRUNC, p->udata);
             goto __err_out;
         }
         data_left   -= ret;
@@ -274,7 +274,7 @@ static void __ev_io_cb(EV_P_ struct ev_io *w, int revents) {
             break;
         }
         __post_result(&r, &p->data_buffer);
-        p->cb(EV_A_ &r, PF_EOK, p->udata);
+        p->cb(EV_A_ p, &r, PF_EOK, p->udata);
         p->data_idx = 0;
 
         if (p->state != S_IDLE) {

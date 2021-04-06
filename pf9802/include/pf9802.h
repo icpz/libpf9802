@@ -31,7 +31,7 @@ typedef struct {
     float power;
 } pf9802_result;
 
-typedef void (*pf9802_data_cb)(EV_P_ pf9802_result *r, int e, void *udata);
+typedef void (*pf9802_data_cb)(EV_P_ pf9802_t *p, pf9802_result *r, int e, void *udata);
 
 pf9802_t *pf9802_open(const char *dev);
 void pf9802_close(pf9802_t *p);
