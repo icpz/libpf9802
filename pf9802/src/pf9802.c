@@ -27,6 +27,7 @@
 
 #include "pf9802.h"
 #include "utils.h"
+#include "port_endian.h"
 
 #define PF_REQ  ((uint8_t)0x05)
 #define PF_RESP ((uint8_t)0xfa)
@@ -56,20 +57,10 @@ struct pf9802_s {
     void *udata;
 };
 
-static uint32_t __ntohl(uint32_t const net) {
-    uint8_t data[4] = {};
-    memcpy(&data, &net, sizeof(data));
-
-    return ((uint32_t)data[3] << 0)
-         | ((uint32_t)data[2] << 8)
-         | ((uint32_t)data[1] << 16)
-         | ((uint32_t)data[0] << 24);
-}
-
 static void __post_result(pf9802_result *r, result_t *result) {
     int i;
     for (i = 0; i < 5; ++i) {
-        result->data[i].u = __ntohl(result->data[i].u);
+        result->data[i].u = be32toh(result->data[i].u);
     }
     r->voltage = result->data[0].f;
     r->current = result->data[1].f;
