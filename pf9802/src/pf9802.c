@@ -32,6 +32,8 @@
 #define PF_REQ  ((uint8_t)0x05)
 #define PF_RESP ((uint8_t)0xfa)
 
+#define SAMPLE_RATE 2
+
 typedef union {
     uint8_t buf[20];
     union {
@@ -45,12 +47,14 @@ enum {
     S_WRITE_REQ,
     S_READ_RESP,
     S_READ_DATA,
+    S_TIMER,
 };
 
 struct pf9802_s {
     int fd;
     int state;
     struct ev_io io;
+    struct ev_timer timer;
     result_t data_buffer;
     int data_idx;
     pf9802_data_cb cb;
@@ -187,6 +191,7 @@ __err_out:
 }
 
 static void __ev_io_cb(EV_P_ struct ev_io *w, int revents);
+static void __ev_timer_cb(EV_P_ struct ev_timer *w, int revents);
 
 void pf9802_async_init(pf9802_t *p, pf9802_data_cb cb, void *udata) {
     p->cb    = cb;
@@ -195,6 +200,9 @@ void pf9802_async_init(pf9802_t *p, pf9802_data_cb cb, void *udata) {
 
     ev_io_init(&p->io, __ev_io_cb, p->fd, EV_WRITE);
     p->io.data = p;
+
+    ev_timer_init(&p->timer, __ev_timer_cb, 1. / SAMPLE_RATE, 0.);
+    p->timer.data = p;
 }
 
 void pf9802_async_start(EV_P_ pf9802_t *p) {
@@ -205,10 +213,23 @@ void pf9802_async_start(EV_P_ pf9802_t *p) {
 }
 
 void pf9802_async_stop(EV_P_ pf9802_t *p) {
+    ev_timer_stop(EV_A_ &p->timer);
     ev_io_stop(EV_A_ &p->io);
     p->io.events = EV_WRITE;
     p->state = S_IDLE;
     tcflush(p->fd, TCIOFLUSH);
+}
+
+static void __ev_timer_cb(EV_P_ struct ev_timer *w, int revents) {
+    pf9802_t *p = (pf9802_t *)w->data;
+
+    ev_timer_stop(EV_A_ w);
+    if (p->state == S_IDLE) {
+        return;
+    }
+
+    p->io.events = EV_WRITE;
+    ev_io_start(EV_A_ &p->io);
 }
 
 static void __ev_io_cb(EV_P_ struct ev_io *w, int revents) {
@@ -268,12 +289,17 @@ static void __ev_io_cb(EV_P_ struct ev_io *w, int revents) {
         p->cb(EV_A_ p, &r, PF_EOK, p->udata);
         p->data_idx = 0;
 
-        if (p->state != S_IDLE) {
-            ev_io_stop(EV_A_ &p->io);
-            p->io.events = EV_WRITE;
-            ev_io_start(EV_A_ &p->io);
-            p->state = S_WRITE_REQ;
+        ev_io_stop(EV_A_ &p->io);
+        if (p->state == S_IDLE) {
+            break;
         }
+        p->state = S_TIMER;
+        /* fall through */
+
+    case S_TIMER:
+        ev_timer_set(&p->timer, 1. / SAMPLE_RATE, 0.);
+        ev_timer_start(EV_A_ &p->timer);
+        p->state = S_WRITE_REQ;
         break;
 
     default:
